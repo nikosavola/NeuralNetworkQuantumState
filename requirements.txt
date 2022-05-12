@@ -1,0 +1,7 @@
+numpy<=1.21  # for numba
+numba
+pandas
+matplotlib
+netket
+tqdm
+jupyter
