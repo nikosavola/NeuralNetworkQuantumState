@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest nbval
+      - name: Run nbval pytest
+        run: pytest --nbval-lax $(git ls-files '*.ipynb')
+
+  linting:
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pylint nbqa
+      - name: Run pylint
+        run: |
+          nbqa pylint $(git ls-files '*.ipynb') 
+          pylint $(git ls-files '*.py')
