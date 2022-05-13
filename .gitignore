@@ -1,6 +1,9 @@
 # NetKet files
 *.log
 *.mpack
+*.pin
+*.pin.*
+*.deb
 
 
 # Byte-compiled / optimized / DLL files

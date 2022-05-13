@@ -37,3 +37,4 @@ disable=
     attribute-defined-outside-init,
     unused-import,
     consider-using-from-import,
+    pointless-statement,

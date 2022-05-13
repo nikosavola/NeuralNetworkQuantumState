@@ -5,3 +5,5 @@ matplotlib
 netket
 tqdm
 jupyter
+ray[tune]
+hyperopt
