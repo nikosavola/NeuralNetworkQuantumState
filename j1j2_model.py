@@ -40,30 +40,15 @@ class OurModel(nn.Module):
         return re + 1j * im
 
 
-def setup_problem():
+def setup_problem(J2 = 0.1):
 
-    # Sets up the system according to the AKLT model:
-    # https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.59.799
-    #
-
-    # The model is essentially a spin-1 chain made up of two spin-1/2s pairwise
-    # This implies three eigenstates, according to which the system's spin projection
-    # operators can be defined.
-    #
     L = 10
-    g = nk.graph.Hypercube(length=L, n_dim=1, pbc=True)
-    N = g.n_nodes
-    hi = nk.hilbert.Spin(s=1, N=N)
-    
-    H = 0
-    # Should we use full spin vectors instead of just sigmaz?
-    #for i, j in g.edges():
-    #    dotpr = sigmax(hi, i) * sigmax(hi, j) + sigmay(hi, i) * sigmay(hi, j) + sigmaz(hi, i) * sigmaz(hi, j)
-    #    H += dotpr + (1/3)*dotpr*dotpr
-        
-    
-    H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
-    H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
+    # Heisenberg model with second nearest neibhbour interactions
+    # Source for the model https://arxiv.org/pdf/2112.10526.pdf
+    # Another found in netket site, but cannot understand anyhing https://netket.readthedocs.io/en/latest/tutorials/gs-j1j2.html
+    g = nk.graph.Hypercube(length=L, n_dim=1, pbc=True, max_neighbor_order=2)
+    hi = nk.hilbert.Spin(s=1/2, total_sz=0, N=g.n_nodes)
+    H = nk.operator.Heisenberg(hilbert=hi, graph=g, J=[1.0, J2])
 
     return H, hi
 
@@ -85,7 +70,7 @@ def setup_model(H, hi, hyperparams):
 
 
 def ray_train_loop(hyperparams, checkpoint_dir=None):
-    H, hi = setup_problem()
+    H, hi = setup_problem(0.1)  # TODO Choose this also as a parameter of model
     vstate, model, trainer = setup_model(H, hi, hyperparams)
     log = nk.logging.RuntimeLog()
     
