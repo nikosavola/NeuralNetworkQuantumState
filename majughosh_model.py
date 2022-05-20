@@ -40,15 +40,15 @@ class OurModel(nn.Module):
         return re + 1j * im
 
 
-def setup_problem(J2 = 0.1):
+def setup_problem(J = 0.1):
 
     L = 10
     # Heisenberg model with second nearest neibhbour interactions
     # Source for the model https://arxiv.org/pdf/2112.10526.pdf
     # Another found in netket site, but cannot understand anyhing https://netket.readthedocs.io/en/latest/tutorials/gs-j1j2.html
-    g = nk.graph.Chain(length=L, n_dim=1, pbc=True, max_neighbor_order=2)
-    hi = nk.hilbert.Spin(s=1/2, total_sz=0, N=g.n_nodes)
-    H = nk.operator.Heisenberg(hilbert=hi, graph=g, J=[1.0, J2])
+    g = nk.graph.Chain(length=L, pbc=True, max_neighbor_order=2)
+    hi = nk.hilbert.Spin(s=1, total_sz=0, N=g.n_nodes)
+    H = sum(J*sigmaz(hi, i)*sigmaz(hi, j) + 0.5*J*sigmaz(hi, i)*sigmaz(hi, j) for i, j in g.edges())
 
     return H, hi
 
