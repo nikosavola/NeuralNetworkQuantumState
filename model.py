@@ -1,13 +1,12 @@
-import jax
+from functools import lru_cache
+
 import jax.numpy as jnp
-import flax
 import netket as nk
 import netket.nn as nn
 
 from scipy.sparse.linalg import eigsh
-from netket.operator.spin import sigmaz, sigmax 
+from netket.operator.spin import sigmaz 
 from ray import tune
-from tqdm.autonotebook import tqdm
 
 
 class OurModel(nn.Module):
@@ -68,14 +67,18 @@ def setup_model(H, hi, hyperparams):
     return vstate, model, trainer
 
 
+@lru_cache
+def get_ground_state(H):
+    " Compute ground state energy of given NetKet Hamiltonian. "
+    return eigsh(H.to_sparse(), k=2, which="SA")[0][0]
+
+
 def ray_train_loop(hyperparams, checkpoint_dir=None):
     H, hi = setup_problem()
     vstate, model, trainer = setup_model(H, hi, hyperparams)
     log = nk.logging.RuntimeLog()
     
-    # TODO precompute this globally
-    E_gs_analytic, _ = eigsh(H.to_sparse(), k=2, which="SA")
-    E_gs_analytic = E_gs_analytic[0]
+    E_gs_analytic = get_ground_state(H)
 
     def _ray_callback(step: int, logdata: dict, driver: "AbstractVariationalDriver") -> bool:
         energy = logdata["Energy"].Mean
