@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 import flax
 import netket as nk
 import netket.nn as nn
@@ -10,67 +11,92 @@ from ray import tune
 from tqdm.autonotebook import tqdm
 
 
+#Couplings J1 and J2
+L = 20
+edge_colors = []
+for i in range(L):
+    edge_colors.append([i, (i+1)%L, 1])
+    edge_colors.append([i, (i+2)%L, 2])
+
+# Define the netket graph object
+g = nk.graph.Graph(edges=edge_colors)
+
 class OurModel(nn.Module):
     
     # Define attributes that can be set with `**kwargs`
     alpha: int = 1
-            
+        
     @nn.compact
     def __call__(self, x):
-
-        # x = x.reshape(-1, 1, x.shape[-1])  # shape for translation symmetry
-
-        # Layers
-        re = nk.nn.Dense(
-            # symmetries=g.translation_group(),
-            features=self.alpha * x.shape[-1],
-            # kernel_init=nn.initializers.normal(stddev=0.01)
-        )(x)
-        re = nk.nn.relu(re)
-        re = jnp.sum(re, axis=-1)
+        n_inputs = x.shape[-1]
         
-        im = nk.nn.Dense(
-            # symmetries=g.translation_group(),
-            features=self.alpha * x.shape[-1],
-            # kernel_init=nn.initializers.normal(stddev=0.01)
-        )(x)
-        im = nn.relu(im)
-        im = jnp.sum(im, axis=-1)
+        x = nk.nn.Dense(features=self.alpha*n_inputs, 
+                       use_bias=True, 
+                       dtype=jnp.complex128, 
+                       kernel_init=nn.initializers.normal(stddev=0.01), 
+                       bias_init=nn.initializers.normal(stddev=0.01)
+                      )(x)
+        x = nk.nn.log_cosh(x)
         
-        return re + 1j * im
+        x = jnp.sum(x, axis=-1)
+        return x
 
 
-def setup_problem(J2 = 0.1):
+def setup_problem(J2 = 0.8):
+    # Found in netket site https://netket.readthedocs.io/en/latest/tutorials/gs-j1j2.html
+    J = [1, J2]
+    sigmaz = [[1, 0], [0, -1]]
+    mszsz = (np.kron(sigmaz, sigmaz))
+    #Exchange interactions
+    exchange = np.asarray([[0, 0, 0, 0], [0, 0, 2, 0], [0, 2, 0, 0], [0, 0, 0, 0]])
 
-    L = 10
-    # Heisenberg model with second nearest neibhbour interactions
-    # Source for the model https://arxiv.org/pdf/2112.10526.pdf
-    # Another found in netket site, but cannot understand anyhing https://netket.readthedocs.io/en/latest/tutorials/gs-j1j2.html
-    g = nk.graph.Chain(length=L, n_dim=1, pbc=True, max_neighbor_order=2)
-    hi = nk.hilbert.Spin(s=1/2, total_sz=0, N=g.n_nodes)
-    H = nk.operator.Heisenberg(hilbert=hi, graph=g, J=[1.0, J2])
+    bond_operator = [
+        (J[0] * mszsz).tolist(),
+        (J[1] * mszsz).tolist(),
+        (-J[0] * exchange).tolist(),  
+        (J[1] * exchange).tolist(),
+    ]
 
-    return H, hi
-
+    bond_color = [1, 2, 1, 2]
+    # Spin based Hilbert Space
+    hi = nk.hilbert.Spin(s=0.5, total_sz=0.0, N=g.n_nodes)
+    H = nk.operator.GraphOperator(hi, graph=g, bond_ops=bond_operator, bond_ops_colors=bond_color)
+    
+    neel = nk.operator.LocalOperator(hi, dtype=complex)
+    for i in range(0, L):
+        neel += nk.operator.spin.sigmaz(hi, i)*((-1)**(i))/L
+    
+    structure_factor = nk.operator.LocalOperator(hi, dtype=complex)
+    for i in range(0, L):
+        for j in range(0, L):
+            structure_factor += (nk.operator.spin.sigmaz(hi, i)*nk.operator.spin.sigmaz(hi, j))*((-1)**(i-j))/L
+    
+    dimer = nk.operator.LocalOperator(hi, dtype=complex)
+    
+    for i in range(0, L):
+        dimer += (nk.operator.spin.sigmap(hi, i)*nk.operator.spin.sigmam(hi, (i+1)%L) + nk.operator.spin.sigmam(hi, i)*nk.operator.spin.sigmap(hi, (i+1)%L))*((-1)**(i))/L
+        
+    return H, hi, [neel,structure_factor, dimer]
 
 def setup_model(H, hi, hyperparams):
-    """ Use given hyperparameters and return training loop, or 'driver'."""
     # Init model with hyperparams
     model = OurModel(**hyperparams['model'])
 
-    sampler = nk.sampler.MetropolisLocal(hi)
+    sampler = nk.sampler.MetropolisExchange(hilbert=hi, graph=g, d_max = 2)
+    
     vstate = nk.vqs.MCState(sampler, model, n_samples=hyperparams['n_samples'])
     # Define the optimizer
 
     optimizer = nk.optimizer.Sgd(learning_rate=hyperparams["learning_rate"])
+    
     # Init driver, i.e., training loop
-    trainer = nk.driver.VMC(H, optimizer, variational_state=vstate,preconditioner=nk.optimizer.SR(diag_shift=0.1))
+    trainer = nk.driver.VMC(H, optimizer, variational_state=vstate, preconditioner=nk.optimizer.SR(diag_shift=0.1))
 
     return vstate, model, trainer
 
 
 def ray_train_loop(hyperparams, checkpoint_dir=None):
-    H, hi = setup_problem(0.1)  # TODO Choose this also as a parameter of model
+    H, hi,obs = setup_problem(0.1)  # TODO Choose this also as a parameter of model
     vstate, model, trainer = setup_model(H, hi, hyperparams)
     log = nk.logging.RuntimeLog()
     

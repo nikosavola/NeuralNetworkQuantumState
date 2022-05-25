@@ -18,26 +18,16 @@ class OurModel(nn.Module):
     @nn.compact
     def __call__(self, x):
 
-        # x = x.reshape(-1, 1, x.shape[-1])  # shape for translation symmetry
-
-        # Layers
-        re = nk.nn.Dense(
-            # symmetries=g.translation_group(),
-            features=self.alpha * x.shape[-1],
-            # kernel_init=nn.initializers.normal(stddev=0.01)
-        )(x)
-        re = nk.nn.relu(re)
-        re = jnp.sum(re, axis=-1)
+        x = nk.nn.Dense(features=2*x.shape[-1], 
+                       use_bias=True, 
+                       dtype=jnp.complex128, 
+                       kernel_init=nn.initializers.normal(stddev=0.01), 
+                       bias_init=nn.initializers.normal(stddev=0.01)
+                      )(x)
+        x = nk.nn.log_cosh(x)
+        x = jnp.sum(x, axis=-1)
         
-        im = nk.nn.Dense(
-            # symmetries=g.translation_group(),
-            features=self.alpha * x.shape[-1],
-            # kernel_init=nn.initializers.normal(stddev=0.01)
-        )(x)
-        im = nn.relu(im)
-        im = jnp.sum(im, axis=-1)
-        
-        return re + 1j * im
+        return x
 
 
 def setup_problem():
@@ -55,17 +45,19 @@ def setup_problem():
     N = g.n_nodes
     hi = nk.hilbert.Spin(s=1, N=N)
     
-    H = 0
+    #H0 = nk.operator.Heisenberg(hi,g)
+    #H += (H0 + (1/3)*H0*H0)
     # Should we use full spin vectors instead of just sigmaz?
-    #for i, j in g.edges():
-    #    dotpr = sigmax(hi, i) * sigmax(hi, j) + sigmay(hi, i) * sigmay(hi, j) + sigmaz(hi, i) * sigmaz(hi, j)
-    #    H += dotpr + (1/3)*dotpr*dotpr
+    H = 0
+    for i, j in g.edges():
+        dotpr = sigmaz(hi, i) * sigmaz(hi, j) #+ sigmax(hi, i) * sigmax(hi, j) + sigmay(hi, i) * sigmay(hi, j)
+        H += dotpr + (1/3)*dotpr*dotpr
         
     
-    H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
-    H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
-
-    return H, hi
+    #H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
+    #H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
+    obs = []
+    return H, hi, obs
 
 
 def setup_model(H, hi, hyperparams):
@@ -74,6 +66,7 @@ def setup_model(H, hi, hyperparams):
     model = OurModel(**hyperparams['model'])
 
     sampler = nk.sampler.MetropolisLocal(hi)
+    
     vstate = nk.vqs.MCState(sampler, model, n_samples=hyperparams['n_samples'])
     # Define the optimizer
 
@@ -85,7 +78,7 @@ def setup_model(H, hi, hyperparams):
 
 
 def ray_train_loop(hyperparams, checkpoint_dir=None):
-    H, hi = setup_problem()
+    H, hi, obs = setup_problem()
     vstate, model, trainer = setup_model(H, hi, hyperparams)
     log = nk.logging.RuntimeLog()
     
