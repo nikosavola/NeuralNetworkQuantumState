@@ -57,13 +57,12 @@ def setup_problem():
     
     H = 0
     # Should we use full spin vectors instead of just sigmaz?
-    #for i, j in g.edges():
-    #    dotpr = sigmax(hi, i) * sigmax(hi, j) + sigmay(hi, i) * sigmay(hi, j) + sigmaz(hi, i) * sigmaz(hi, j)
-    #    H += dotpr + (1/3)*dotpr*dotpr
+    for i, j in g.edges():
+        dotpr = sigmax(hi, i)*sigmax(hi, j) + sigmay(hi, i)*sigmay(hi, j) + sigmaz(hi, i)*sigmaz(hi, j)
+        H += dotpr + (1/3)*dotpr*dotpr
         
-    
-    H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
-    H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
+    #H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
+    #H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
 
     return H, hi
 
