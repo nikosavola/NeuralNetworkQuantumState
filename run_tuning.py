@@ -1,22 +1,12 @@
-import os
-import json
 import argparse
+from datetime import datetime
 
-import matplotlib.pyplot as plt
-import jax.numpy as jnp
-import numpy as np
 import pandas as pd
-import ray
-import netket as nk
-import netket.nn as nn
-import netket.experimental
-import hiplot
 
 from ray import tune
 from ray.tune.suggest.hyperopt import HyperOptSearch
-from IPython.display import display
 
-from model import GCNN, FFN, setup_j1j2_problem, setup_model, ray_train_loop, get_ground_state
+from model import GCNN, FFN, setup_j1j2_problem, ray_train_loop
 
 
 if __name__ == "__main__":
@@ -36,12 +26,12 @@ if __name__ == "__main__":
         'model': {
             # 'alpha': tune.randint(1, 3+1), # last value exclusive
             'symmetries': g,
-            'layers': tune.randint(1, 6+1),
-            'features': tune.randint(2, 10+1)
+            'layers': tune.randint(4, 12+1),
+            'features': tune.randint(2, 9+1)
         },
         # 'activation': tune.choice(['tanh', 'sigmoid']),
         'learning_rate': tune.uniform(0.005, 0.12),
-        'n_epochs': 30, #tune.qrandint(100, 300, 50),
+        'n_epochs': 50, #tune.qrandint(100, 300, 50),
         'n_samples': 1400, #tune.qrandint(100, 1000, 100),
     }
 
@@ -70,7 +60,7 @@ if __name__ == "__main__":
     df = analysis.dataframe()
     df_params = df['config/model'].apply(pd.Series).drop(['symmetries'], axis=1)
     df = df_params.join(df['config/learning_rate']).join(df['energy_error'])
-    df.to_csv('data/ray_tune_output.csv', index_label='uid')
+    df.to_csv(f'data/ray_tune_output_{datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")}.csv', index_label='uid')
 
     hyperparams = analysis.get_best_config(metric=metric, mode=mode)
     print(hyperparams)
