@@ -4,6 +4,8 @@ Group work for [PHYS-E0421 - Solid State Physics](https://mycourses.aalto.fi/cou
 
 Check [`notebook.ipynb`](https://github.com/nikosavola/NeuralNetworkQuantumState/blob/main/notebook.ipynb) for running the model and results. Source code for the problem, model, and Ray Tune compability is in [`model.py`](https://github.com/nikosavola/NeuralNetworkQuantumState/blob/main/model.py).
 
+Clusters with [Slurm](https://slurm.schedmd.com/documentation.html) can be used to run the hyperparameter optimisation and parameter sweeps in parallel. See the `.sbatch` files for more information.
+
 ## Installation
 
 ### Linux and macOS

@@ -1,0 +1,43 @@
+## https://matplotlib.org/3.3.3/tutorials/introductory/customizing.html
+
+axes.prop_cycle : cycler('color', ['008fd5', 'fc4f30', 'e5ae38', '6d904f', '8b8b8b', '810f7c']) # fivethirtyeight
+axes.titlesize : 14
+axes.xmargin : 0  # axis tight
+axes.facecolor : white # background colour
+axes.linewidth : 1.2
+##axes.grid : True
+
+font.family : serif
+font.sans-serif : Helvetica
+font.serif : cmr10 # CMU Serif
+axes.unicode_minus  : False # fix unicode minus from cmr10
+font.size : 11
+
+mathtext.fontset : cm
+
+lines.linewidth : 1.8
+lines.markersize : 4.2
+lines.dashed_pattern: 3.7, 2.0
+lines.dash_capstyle : round
+lines.dash_joinstyle : round
+lines.scale_dashes : True
+
+legend.loc : best
+legend.fancybox : True
+legend.frameon : False #True
+legend.shadow : False
+legend.borderpad : 0.25
+
+figure.autolayout : True
+# figure.dpi : 150
+
+image.aspect : equal                # {equal, auto} or a number
+image.interpolation : antialiased   # see help(imshow) for options
+image.cmap : magma # spring
+image.lut : 256
+#image.origin: upper                # {lower, upper}
+#image.resample:  True
+image.composite_image: True  # When True, all the images on a set of axes are
+                              # combined into a single composite image before
+                              # saving a figure as a vector graphics file,
+                              # such as a PDF.

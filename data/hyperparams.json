@@ -1,0 +1,9 @@
+{
+    "model": {
+        "features": 3,
+        "layers": 9
+    },
+    "learning_rate": 0.0349702685746564,
+    "n_epochs": 300,
+    "n_samples": 1408
+}
