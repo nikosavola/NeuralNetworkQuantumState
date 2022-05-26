@@ -26,8 +26,8 @@ if __name__ == "__main__":
         'model': {
             # 'alpha': tune.randint(1, 3+1), # last value exclusive
             'symmetries': g,
-            'layers': tune.randint(4, 12+1),
-            'features': tune.randint(2, 9+1)
+            'layers': tune.randint(4, 16+1),
+            'features': tune.randint(2, 10+1)
         },
         # 'activation': tune.choice(['tanh', 'sigmoid']),
         'learning_rate': tune.uniform(0.005, 0.12),
