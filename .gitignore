@@ -8,6 +8,8 @@
 # HiPlot output
 *.html
 
+# Cluster output
+*.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
