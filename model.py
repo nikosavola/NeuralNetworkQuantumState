@@ -11,6 +11,8 @@ from netket.operator.spin import sigmaz, sigmax, sigmay
 from ray import tune
 
 
+GCNN = nk.models.GCNN
+
 class FFN(nn.Module):
     
     # Define attributes that can be set with `**kwargs`
@@ -32,7 +34,7 @@ class FFN(nn.Module):
         return x
 
 
-def setup_j1j2_problem(L = 20, J2 = 0.8):
+def setup_j1j2_problem(L: int = 20, J2: float = 0.8):
 
     #Couplings J1 and J2
     edge_colors = []
@@ -81,7 +83,7 @@ def setup_j1j2_problem(L = 20, J2 = 0.8):
     return H, hi, g, obs
 
 
-def setup_aklt_problem(L = 10):
+def setup_aklt_problem(L: int = 10):
     # Sets up the system according to the AKLT model:
     # https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.59.799
     #
@@ -108,7 +110,8 @@ def setup_aklt_problem(L = 10):
     return H, hi, g, obs
 
 
-def setup_model(H, hi, g, model, hyperparams):
+def setup_model(H: nk.operator.AbstractOperator, hi: nk.hilbert.AbstractHilbert,
+                g: nk.graph.Graph, model: nn.Module, hyperparams: dict):
     """ Use given hyperparameters and return training loop, or 'driver'."""
     # Init model with hyperparams
     model = model(**hyperparams['model'])
@@ -126,19 +129,19 @@ def setup_model(H, hi, g, model, hyperparams):
 
 
 @lru_cache
-def get_ground_state(H):
+def get_ground_state(H: nk.operator.AbstractOperator):
     " Compute ground state energy of given NetKet Hamiltonian. "
     return eigsh(H.to_sparse(), k=2, which="SA")[0][0]
 
 
-def ray_train_loop(hyperparams, setup_problem=setup_j1j2_problem, model=FFN, checkpoint_dir=None):
+def ray_train_loop(hyperparams: dict, setup_problem=setup_j1j2_problem, model: nn.Module = FFN, checkpoint_dir=None):  # pylint: disable=unused-argument
     H, hi, g, _ = setup_problem()
     _, model, trainer = setup_model(H, hi, g, model, hyperparams)
     log = nk.logging.RuntimeLog()
     
     E_gs_analytic = get_ground_state(H)
 
-    def _ray_callback(step: int, logdata: dict, driver: "AbstractVariationalDriver") -> bool:
+    def _ray_callback(step: int, logdata: dict, driver: nk.driver.AbstractVariationalDriver) -> bool:  # pylint: disable=unused-argument
         energy = logdata["Energy"].Mean
         error = abs((energy - E_gs_analytic))
         # with tune.checkpoint_dir(step=step) as checkpoint_dir:
