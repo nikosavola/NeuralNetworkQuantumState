@@ -43,5 +43,5 @@ jobs:
           pip install pylint nbqa
       - name: Run pylint
         run: |
-          nbqa pylint $(git ls-files '*.ipynb') 
+          nbqa pylint $(git ls-files '*.ipynb')
           pylint $(git ls-files '*.py')
