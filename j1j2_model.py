@@ -80,7 +80,8 @@ def setup_problem(J2 = 0.8):
 
 def setup_model(H, hi, hyperparams):
     # Init model with hyperparams
-    model = OurModel(**hyperparams['model'])
+    #model = OurModel(**hyperparams['model'])
+    model = nk.models.RBMMultiVal(alpha=1, n_classes=3)
 
     sampler = nk.sampler.MetropolisExchange(hilbert=hi, graph=g, d_max = 2)
     

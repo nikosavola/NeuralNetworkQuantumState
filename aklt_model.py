@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import flax
 import netket as nk
 import netket.nn as nn
+import numpy as np
 
 from scipy.sparse.linalg import eigsh
 from netket.operator.spin import sigmaz, sigmax, sigmay
@@ -41,36 +42,81 @@ def setup_problem():
     # operators can be defined.
     #
     L = 10
-    g = nk.graph.Hypercube(length=L, n_dim=1, pbc=True)
+    #g = nk.graph.Chain(length=L, pbc=True)
+
+    edge_colors = []
+    for i in range(0, L, 2):
+        edge_colors.append([i, (i+1)%L, 1])
+        #edge_colors.append([i, (i+2)%L, 2])
+
+    # Define the netket graph object
+    g = nk.graph.Graph(edges=edge_colors)
+
     N = g.n_nodes
-    hi = nk.hilbert.Spin(s=1, N=N)
-    
-    #H0 = nk.operator.Heisenberg(hi,g)
-    #H += (H0 + (1/3)*H0*H0)
+    hi = nk.hilbert.Spin(s=1/2, N=N)
+
     # Should we use full spin vectors instead of just sigmaz?
-    H = 0
-    for i, j in g.edges():
-        dotpr = sigmaz(hi, i) * sigmaz(hi, j) #+ sigmax(hi, i) * sigmax(hi, j) + sigmay(hi, i) * sigmay(hi, j)
-        H += dotpr + (1/3)*dotpr*dotpr
-        
+
+    sx = [[0, 1], [1, 0]]
+    sy = [[0, -1j], [1j, 0]]
+    sz = [[1, 0], [0, -1]]
+    mszsx = np.kron(sx, sx)
+    mszsy = np.kron(sy, sy)
+    mszsz = np.kron(sz, sz)
+    H0 = np.eye(4)*1/3
+    H1 = (mszsx**2 + mszsy**2 + mszsz**2)*1/2
+    H2 = H1**2*1/6
+
+    siteops = []
+    bondops = [H0+H1+H2]
+    bondcols = [1]
+    H = nk.operator.GraphOperator(hilbert=hi, graph=g, site_ops=siteops, bond_ops=bondops, bond_ops_colors=bondcols)
+
+    #heis = nk.operator.Heisenberg(hilbert=hi, graph=g)
+    #H1 = 0.5*heis
+    #H2 = 1/6*heis**2
+    #H0 = 1/3*heis**0
+    #H = H0 + H1 + H2
+    
+    #for i, j in g.edges():
+    #    dotpr = sigmaz(hi, i)*sigmaz(hi, j+1) + sigmax(hi, i)*sigmax(hi, j+1) + sigmay(hi, i)*sigmay(hi, j+1)
+    #    H += 0.5*dotpr + 1/6*dotpr*dotpr + 1/3
     
     #H = sum(sigmaz(hi, i) * sigmaz(hi, j) for i, j in g.edges())
     #H += sum(1/3 * ( sigmaz(hi, i)*sigmaz(hi, j) * sigmaz(hi, i)*sigmaz(hi, j) ) for i, j in g.edges())
-    obs = []
-    return H, hi, obs
+
+    neel = nk.operator.LocalOperator(hi, dtype=complex)
+    for i in range(0, L):
+        neel += nk.operator.spin.sigmaz(hi, i)*((-1)**(i))/L
+    
+    structure_factor = nk.operator.LocalOperator(hi, dtype=complex)
+    for i in range(0, L):
+        for j in range(0, L):
+            structure_factor += (nk.operator.spin.sigmaz(hi, i)*nk.operator.spin.sigmaz(hi, j))*((-1)**(i-j))/L
+    
+    dimer = nk.operator.LocalOperator(hi, dtype=complex)
+    for i in range(0, L):
+        dimer += (nk.operator.spin.sigmap(hi, i)*nk.operator.spin.sigmam(hi, (i+1)%L) + nk.operator.spin.sigmam(hi, i)*nk.operator.spin.sigmap(hi, (i+1)%L))*((-1)**(i))/L
+    obs = [neel, structure_factor, dimer]
+    
+    return H, hi, g, obs
 
 
 def setup_model(H, hi, hyperparams):
     """ Use given hyperparameters and return training loop, or 'driver'."""
     # Init model with hyperparams
-    model = OurModel(**hyperparams['model'])
+    #model = OurModel(**hyperparams['model'])
+    model = nk.models.RBMMultiVal(alpha=1, n_classes=3)
 
+    # Define the sampler on the Hilbert space
     sampler = nk.sampler.MetropolisLocal(hi)
     
+    # Sample state from the given Hilbert space
     vstate = nk.vqs.MCState(sampler, model, n_samples=hyperparams['n_samples'])
-    # Define the optimizer
 
+    # Define the optimizer
     optimizer = nk.optimizer.Sgd(learning_rate=hyperparams["learning_rate"])
+
     # Init driver, i.e., training loop
     trainer = nk.driver.VMC(H, optimizer, variational_state=vstate,preconditioner=nk.optimizer.SR(diag_shift=0.1))
 

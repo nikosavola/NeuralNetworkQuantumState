@@ -41,7 +41,7 @@ class OurModel(nn.Module):
 
 
 def setup_problem():
-    L = 15
+    L = 12
     g = nk.graph.Hypercube(length=L, n_dim=1, pbc=True)
     N = g.n_nodes
     hi = nk.hilbert.Spin(s=1/2, N=N)
@@ -55,7 +55,8 @@ def setup_problem():
 def setup_model(H, hi, hyperparams):
     """ Use given hyperparameters and return training loop, or 'driver'."""
     # Init model with hyperparams
-    model = OurModel(**hyperparams['model'])
+    #model = OurModel(**hyperparams['model'])
+    model = nk.models.RBMMultiVal(alpha=1)
 
     sampler = nk.sampler.MetropolisLocal(hi)
     vstate = nk.vqs.MCState(sampler, model, n_samples=hyperparams['n_samples'])
