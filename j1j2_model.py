@@ -4,6 +4,7 @@ import numpy as np
 import flax
 import netket as nk
 import netket.nn as nn
+import numpy as np
 
 from scipy.sparse.linalg import eigsh
 from netket.operator.spin import sigmaz, sigmax, sigmay
@@ -29,6 +30,20 @@ class OurModel(nn.Module):
     @nn.compact
     def __call__(self, x):
         n_inputs = x.shape[-1]
+
+        # INPUTS:
+        # x - the number of features 
+
+        # x = x.reshape(-1, 1, x.shape[-1])  # shape for translation symmetry
+
+        # Layers
+        re = nk.nn.Dense(
+            # symmetries=g.translation_group(),
+            features=self.alpha * x.shape[-1],
+            # kernel_init=nn.initializers.normal(stddev=0.01)
+        )(x)
+        re = nk.nn.relu(re) # Defines a rectified linear activation function (ReLU)
+        re = jnp.sum(re, axis=-1) # Sums over the real 
         
         x = nk.nn.Dense(features=self.alpha*n_inputs, 
                        use_bias=True, 
@@ -47,6 +62,31 @@ def setup_problem(J2 = 0.8):
     J = [1, J2]
     sigmaz = [[1, 0], [0, -1]]
     mszsz = (np.kron(sigmaz, sigmaz))
+    return re + 1j * im
+
+
+def setup_problem(J2=0.1, L=10):
+
+    # Heisenberg model with second nearest neibhbour interactions
+    # Source for the model https://arxiv.org/pdf/2112.10526.pdf
+    # Another found in netket site, but cannot understand anyhing https://netket.readthedocs.io/en/latest/tutorials/gs-j1j2.html
+    #g = nk.graph.Hypercube(length=L, n_dim=1, pbc=True, max_neighbor_order=2)
+
+    J = [1.0, J2]
+
+    # Define custom graph
+    edge_colors = []
+    for i in range(L):
+        edge_colors.append([i, (i+1)%L, 1])
+        edge_colors.append([i, (i+2)%L, 2])
+
+    # Define the netket graph object
+    g = nk.graph.Graph(edges=edge_colors)
+
+    #Sigma^z*Sigma^z interactions
+    sigmaz = [[1, 0], [0, -1]]
+    mszsz = (np.kron(sigmaz, sigmaz))
+
     #Exchange interactions
     exchange = np.asarray([[0, 0, 0, 0], [0, 0, 2, 0], [0, 2, 0, 0], [0, 0, 0, 0]])
 
@@ -78,6 +118,7 @@ def setup_problem(J2 = 0.8):
         
     return H, hi, [neel,structure_factor, dimer]
 
+
 def setup_model(H, hi, hyperparams):
     # Init model with hyperparams
     #model = OurModel(**hyperparams['model'])
@@ -97,13 +138,14 @@ def setup_model(H, hi, hyperparams):
 
 
 def ray_train_loop(hyperparams, checkpoint_dir=None):
-    H, hi,obs = setup_problem(0.1)  # TODO Choose this also as a parameter of model
+    H, hi, obs = setup_problem(0.1)  # TODO Choose this also as a parameter of model
+    #H, hi = setup_problem(J2=0.5)  # TODO Choose this also as a parameter of model
     vstate, model, trainer = setup_model(H, hi, hyperparams)
     log = nk.logging.RuntimeLog()
     
     # TODO precompute this globally
     E_gs_analytic, _ = eigsh(H.to_sparse(), k=2, which="SA")
-    E_gs_analytic = E_gs_analytic[0]
+    E_gs_analytic = E_gs_analytic[0] # Takes the ground state energy
 
     def _ray_callback(step: int, logdata: dict, driver: "AbstractVariationalDriver") -> bool:
         energy = logdata["Energy"].Mean
