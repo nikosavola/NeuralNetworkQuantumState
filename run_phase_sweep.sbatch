@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --time=02:00:00
+#SBATCH --time=10:00:00
 #SBATCH --job-name=nnqs_phase_sweep
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=2GB
-#SBATCH --array=1-4
+#SBATCH --array=1-6
 #SBATCH --output=nnqs_phase_sweep_%a.out
 
 module load anaconda gcc openmpi
@@ -12,7 +12,7 @@ module load anaconda gcc openmpi
 pip install --upgrade "jax[cpu]" "netket[mpi]" typing-extensions
 
 i=$SLURM_ARRAY_TASK_ID
-number_of_J2=12
+number_of_J2=40
 
 # Split to (total) array jobs that have n/i jobs each
 for n in $(seq 1 $number_of_J2); do
