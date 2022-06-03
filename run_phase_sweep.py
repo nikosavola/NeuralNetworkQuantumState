@@ -32,7 +32,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     
-    J2 = np.linspace(0.2, 0.80, args.J2_max)[args.J2_idx - 1]
+    J2 = np.linspace(0.5, 0.80, args.J2_max)[args.J2_idx - 1]
     H, hi, g, obs = setup_j1j2_problem(J2=J2) 
 
     # load hyperarams
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     trainer.run(n_iter=hyperparams['n_epochs'], out=log, obs=obs)
     data = log.data
     
-    last_means = 3
+    last_means = 50
     # save results to csv
     df = pd.Series({
         'J2': J2,
